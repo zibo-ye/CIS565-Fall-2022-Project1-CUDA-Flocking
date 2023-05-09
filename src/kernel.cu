@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 #include "utilityCore.hpp"
 #include "kernel.h"
+#include "device_launch_parameters.h"
 
 // LOOK-2.1 potentially useful for doing grid-based neighbor search
 #ifndef imax
@@ -233,7 +234,8 @@ __device__ glm::vec3 computeVelocityChange(int N, int iSelf, const glm::vec3 *po
   // Rule 1: boids fly towards their local perceived center of mass, which excludes themselves
   // Rule 2: boids try to stay a distance d away from each other
   // Rule 3: boids try to match the speed of surrounding boids
-  return glm::vec3(0.0f, 0.0f, 0.0f);
+  //#TODO: implement
+    return vel[iSelf];
 }
 
 /**
@@ -242,7 +244,12 @@ __device__ glm::vec3 computeVelocityChange(int N, int iSelf, const glm::vec3 *po
 */
 __global__ void kernUpdateVelocityBruteForce(int N, glm::vec3 *pos,
   glm::vec3 *vel1, glm::vec3 *vel2) {
+    int index = threadIdx.x + (blockIdx.x * blockDim.x);
+    if (index >= N) {
+        return;
+    }
   // Compute a new velocity based on pos and vel1
+    vel2[index] = computeVelocityChange(N, index, pos, vel1);
   // Clamp the speed
   // Record the new velocity into vel2. Question: why NOT vel1?
 }
@@ -348,7 +355,15 @@ __global__ void kernUpdateVelNeighborSearchCoherent(
 */
 void Boids::stepSimulationNaive(float dt) {
   // TODO-1.2 - use the kernels you wrote to step the simulation forward in time.
+  dim3 fullBlocksPerGrid((numObjects + blockSize - 1) / blockSize);
+  kernUpdatePos<<<fullBlocksPerGrid, blockSize>>>(numObjects, dt,
+                                                  dev_pos, dev_vel1); // explicit
+  checkCUDAErrorWithLine("kernUpdatePos failed!");
+  kernUpdateVelocityBruteForce<<<fullBlocksPerGrid, blockSize>>>(numObjects, dev_pos,
+                                                                 dev_vel1, dev_vel2);
+  checkCUDAErrorWithLine("kernUpdateVelocityBruteForce failed!");
   // TODO-1.2 ping-pong the velocity buffers
+  std::swap(dev_vel1, dev_vel2);
 }
 
 void Boids::stepSimulationScatteredGrid(float dt) {
