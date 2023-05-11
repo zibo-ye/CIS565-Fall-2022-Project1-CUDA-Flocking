@@ -242,6 +242,100 @@ void Boids::copyBoidsToVBO(float *vbodptr_positions, float *vbodptr_velocities)
  * stepSimulation *
  ******************/
 
+__device__ glm::vec3 computeVelocityChangeRule1(int N, int iSelf, const glm::vec3* pos, const glm::vec3* vel)
+{
+    // Rule 1: boids fly towards their local perceived center of mass, which excludes themselves
+    /*
+    function rule1(Boid boid)
+
+        Vector perceived_center
+
+        foreach Boid b:
+            if b != boid and distance(b, boid) < rule1Distance then
+                perceived_center += b.position
+            endif
+        end
+
+        perceived_center /= number_of_neighbors
+
+        return (perceived_center - boid.position) * rule1Scale
+    end
+    */
+    glm::vec3 perceived_center = glm::vec3(0.0f, 0.0f, 0.0f);
+    int number_of_neighbors = 0;
+    for (int i = 0; i < N; i++)
+    {
+        if (i != iSelf && glm::distance(pos[i], pos[iSelf]) < rule1Distance)
+        {
+			perceived_center += pos[i];
+			number_of_neighbors++;
+		}
+    }
+    perceived_center /= number_of_neighbors;
+    return (perceived_center - pos[iSelf]) * rule1Scale;
+}
+
+__device__ glm::vec3 computeVelocityChangeRule2(int N, int iSelf, const glm::vec3* pos, const glm::vec3* vel)
+{
+    // Rule 2: boids try to stay a distance d away from each other
+    /*
+    function rule2(Boid boid)
+
+        Vector c = 0
+
+        foreach Boid b
+            if b != boid and distance(b, boid) < rule2Distance then
+                c -= (b.position - boid.position)
+            endif
+        end
+
+        return c * rule2Scale
+    end
+    */
+    glm::vec3 c = glm::vec3(0.0f, 0.0f, 0.0f);
+    for (int i = 0; i < N; i++)
+    {
+        if (i != iSelf && glm::distance(pos[i], pos[iSelf]) < rule2Distance)
+        {
+            c -= (pos[i] - pos[iSelf]);
+        }
+    }
+    return c * rule2Scale;
+}
+
+__device__ glm::vec3 computeVelocityChangeRule3(int N, int iSelf, const glm::vec3* pos, const glm::vec3* vel)
+{
+    // Rule 3: boids try to match the speed of surrounding boids
+    /*
+    function rule3(Boid boid)
+
+        Vector perceived_velocity
+
+        foreach Boid b
+            if b != boid and distance(b, boid) < rule3Distance then
+                perceived_velocity += b.velocity
+            endif
+        end
+
+        perceived_velocity /= number_of_neighbors
+
+        return perceived_velocity * rule3Scale //should use delta velocity but it is what it is.
+    end
+    */
+    glm::vec3 perceived_velocity = glm::vec3(0.0f, 0.0f, 0.0f);
+    int number_of_neighbors = 0;
+    for (int i = 0; i < N; i++)
+    {
+        if (i != iSelf && glm::distance(pos[i], pos[iSelf]) < rule3Distance)
+        {
+            perceived_velocity += vel[i];
+            number_of_neighbors++;
+        }
+    }
+    perceived_velocity /= number_of_neighbors;
+    return perceived_velocity * rule3Scale;
+}
+
 /**
  * LOOK-1.2 You can use this as a helper for kernUpdateVelocityBruteForce.
  * __device__ code can be called from a __global__ context
@@ -253,8 +347,9 @@ __device__ glm::vec3 computeVelocityChange(int N, int iSelf, const glm::vec3 *po
   // Rule 1: boids fly towards their local perceived center of mass, which excludes themselves
   // Rule 2: boids try to stay a distance d away from each other
   // Rule 3: boids try to match the speed of surrounding boids
-  // #TODO: implement
-  return vel[iSelf];
+    return computeVelocityChangeRule1(N, iSelf, pos, vel)
+        + computeVelocityChangeRule2(N, iSelf, pos, vel)
+        + computeVelocityChangeRule3(N, iSelf, pos, vel);
 }
 
 /**
@@ -270,9 +365,13 @@ __global__ void kernUpdateVelocityBruteForce(int N, glm::vec3 *pos,
     return;
   }
   // Compute a new velocity based on pos and vel1
-  vel2[index] = computeVelocityChange(N, index, pos, vel1);
+  glm::vec3 deltaVel = computeVelocityChange(N, index, pos, vel1);
+  glm::vec3 newVel = vel1[index] + deltaVel;
   // Clamp the speed
+  float speed = glm::length(newVel);
+  newVel = glm::normalize(newVel) * (speed > maxSpeed ? maxSpeed : speed);
   // Record the new velocity into vel2. Question: why NOT vel1?
+  vel2[index] = newVel;
 }
 
 /**
