@@ -494,10 +494,23 @@ __global__ void kernUpdateVelNeighborSearchScattered(
 		glm::ivec3 gridCellIndex3DMin = (pos[index] - ruleDistanceMax - gridMin) * inverseCellWidth;
 		glm::ivec3 gridCellIndex3DMax = (pos[index] + ruleDistanceMax - gridMin) * inverseCellWidth;
 
+
+#if OPT_ITER_ORDER //x is at lowest order in gridIndex3Dto1D
+		for (int z = gridCellIndex3DMin.z; z <= gridCellIndex3DMax.z; z++)
+			for (int y = gridCellIndex3DMin.y; y <= gridCellIndex3DMax.y; y++)
+				for (int x = gridCellIndex3DMin.x; x <= gridCellIndex3DMax.x; x++)
+#else
 		for (int x = gridCellIndex3DMin.x; x <= gridCellIndex3DMax.x; x++)
 			for (int y = gridCellIndex3DMin.y; y <= gridCellIndex3DMax.y; y++)
 				for (int z = gridCellIndex3DMin.z; z <= gridCellIndex3DMax.z; z++)
+#endif
 				{
+					if (x < 0) { x += gridResolution; }
+					if (y < 0) { y += gridResolution; }
+					if (z < 0) { z += gridResolution; }
+					if (x >= gridResolution) { x -= gridResolution; }
+					if (y >= gridResolution) { y -= gridResolution; }
+					if (z >= gridResolution) { z -= gridResolution; }
 					glm::ivec3 neighborGridCellIndex3D = glm::ivec3(x, y, z);
 					neighborGridCellIndex3D = (neighborGridCellIndex3D + gridResolution) % gridResolution;
 					int neighborGridCellIndex = gridIndex3Dto1D(neighborGridCellIndex3D.x, neighborGridCellIndex3D.y, neighborGridCellIndex3D.z, gridResolution);
@@ -585,7 +598,7 @@ __global__ void kernUpdateVelNeighborSearchCoherent(
 		glm::ivec3 gridCellIndex3DMin = (pos[index] - ruleDistanceMax - gridMin) * inverseCellWidth;
 		glm::ivec3 gridCellIndex3DMax = (pos[index] + ruleDistanceMax - gridMin) * inverseCellWidth;
 
-#if OPT_ITER_ORDER
+#if OPT_ITER_ORDER //x is at lowest order in gridIndex3Dto1D
 		for (int z = gridCellIndex3DMin.z; z <= gridCellIndex3DMax.z; z++)
 			for (int y = gridCellIndex3DMin.y; y <= gridCellIndex3DMax.y; y++)
 				for (int x = gridCellIndex3DMin.x; x <= gridCellIndex3DMax.x; x++)
@@ -595,6 +608,12 @@ __global__ void kernUpdateVelNeighborSearchCoherent(
 				for (int z = gridCellIndex3DMin.z; z <= gridCellIndex3DMax.z; z++)
 #endif
 				{
+					if (x < 0) { x += gridResolution; }
+					if (y < 0) { y += gridResolution; }
+					if (z < 0) { z += gridResolution; }
+					if (x >= gridResolution) { x -= gridResolution; }
+					if (y >= gridResolution) { y -= gridResolution; }
+					if (z >= gridResolution) { z -= gridResolution; }
 					glm::ivec3 neighborGridCellIndex3D = glm::ivec3(x, y, z);
 					neighborGridCellIndex3D = (neighborGridCellIndex3D + gridResolution) % gridResolution;
 					int neighborGridCellIndex = gridIndex3Dto1D(neighborGridCellIndex3D.x, neighborGridCellIndex3D.y, neighborGridCellIndex3D.z, gridResolution);
