@@ -45,6 +45,8 @@ void checkCUDAError(const char* msg, int line = -1)
 
 #define UNIFORM_GRID 1
 #define COHERENT_GRID 1
+#define OPT_ITER_ORDER 1
+#define OPT_UNSTABLE_SORT 1
 
 /*****************
  * Configuration *
@@ -583,9 +585,15 @@ __global__ void kernUpdateVelNeighborSearchCoherent(
 		glm::ivec3 gridCellIndex3DMin = (pos[index] - ruleDistanceMax - gridMin) * inverseCellWidth;
 		glm::ivec3 gridCellIndex3DMax = (pos[index] + ruleDistanceMax - gridMin) * inverseCellWidth;
 
+#if OPT_ITER_ORDER
+		for (int z = gridCellIndex3DMin.z; z <= gridCellIndex3DMax.z; z++)
+			for (int y = gridCellIndex3DMin.y; y <= gridCellIndex3DMax.y; y++)
+				for (int x = gridCellIndex3DMin.x; x <= gridCellIndex3DMax.x; x++)
+#else
 		for (int x = gridCellIndex3DMin.x; x <= gridCellIndex3DMax.x; x++)
 			for (int y = gridCellIndex3DMin.y; y <= gridCellIndex3DMax.y; y++)
 				for (int z = gridCellIndex3DMin.z; z <= gridCellIndex3DMax.z; z++)
+#endif
 				{
 					glm::ivec3 neighborGridCellIndex3D = glm::ivec3(x, y, z);
 					neighborGridCellIndex3D = (neighborGridCellIndex3D + gridResolution) % gridResolution;
@@ -672,8 +680,11 @@ void Boids::stepSimulationScatteredGrid(float dt)
 	// - Unstable key sort using Thrust. A stable sort isn't necessary, but you
 	//   are welcome to do a performance comparison.
 	// #TODO: stable sort performance comparison.
-	//thrust::stable_sort_by_key(dev_thrust_particleGridIndices, dev_thrust_particleGridIndices + numObjects, dev_thrust_particleArrayIndices);
+#if OPT_UNSTABLE_SORT
 	thrust::sort_by_key(dev_thrust_particleGridIndices, dev_thrust_particleGridIndices + numObjects, dev_thrust_particleArrayIndices);
+#else
+	thrust::stable_sort_by_key(dev_thrust_particleGridIndices, dev_thrust_particleGridIndices + numObjects, dev_thrust_particleArrayIndices);
+#endif
 	// - Naively unroll the loop for finding the start and end indices of each
 	//   cell's data pointers in the array of boid indices
 	kernResetIntBuffer CUDA_KERNEL(fullBlocksPerGridForCell, blockSize)(gridSideCount, dev_gridCellStartIndices, START_INDEX_DEFAULT_VALUE);
@@ -710,7 +721,11 @@ void Boids::stepSimulationCoherentGrid(float dt)
 		gridInverseCellWidth, dev_pos, dev_particleArrayIndices, dev_particleGridIndices);
 	// - Unstable key sort using Thrust. A stable sort isn't necessary, but you
 	//   are welcome to do a performance comparison.
+#if OPT_UNSTABLE_SORT
 	thrust::sort_by_key(dev_thrust_particleGridIndices, dev_thrust_particleGridIndices + numObjects, dev_thrust_particleArrayIndices);
+#else
+	thrust::stable_sort_by_key(dev_thrust_particleGridIndices, dev_thrust_particleGridIndices + numObjects, dev_thrust_particleArrayIndices);
+#endif
 	// - Naively unroll the loop for finding the start and end indices of each
 	//   cell's data pointers in the array of boid indices
 	kernResetIntBuffer CUDA_KERNEL(fullBlocksPerGridForCell, blockSize)(gridSideCount, dev_gridCellStartIndices, START_INDEX_DEFAULT_VALUE);
