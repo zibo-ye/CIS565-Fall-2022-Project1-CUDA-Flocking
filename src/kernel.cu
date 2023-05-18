@@ -450,11 +450,6 @@ __global__ void kernIdentifyCellStartEnd(int N, int* particleGridIndices,
 __global__ void kernSortPosAndVel(int N, int* particleArrayIndices,
 	glm::vec3* pos, glm::vec3* sorted_pos, glm::vec3* vel, glm::vec3* sorted_vel)
 {
-	// TODO-2.1 - kernComputeIndices
-	// - Label each boid with the index of its grid cell.
-	// - Set up a parallel array of integer indices as pointers to the actual
-	//   boid data in pos and vel1/vel2
-
 	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 	if (index < N)
 	{
@@ -505,12 +500,6 @@ __global__ void kernUpdateVelNeighborSearchScattered(
 				for (int z = gridCellIndex3DMin.z; z <= gridCellIndex3DMax.z; z++)
 #endif
 				{
-					if (x < 0) { x += gridResolution; }
-					if (y < 0) { y += gridResolution; }
-					if (z < 0) { z += gridResolution; }
-					if (x >= gridResolution) { x -= gridResolution; }
-					if (y >= gridResolution) { y -= gridResolution; }
-					if (z >= gridResolution) { z -= gridResolution; }
 					glm::ivec3 neighborGridCellIndex3D = glm::ivec3(x, y, z);
 					neighborGridCellIndex3D = (neighborGridCellIndex3D + gridResolution) % gridResolution;
 					int neighborGridCellIndex = gridIndex3Dto1D(neighborGridCellIndex3D.x, neighborGridCellIndex3D.y, neighborGridCellIndex3D.z, gridResolution);
@@ -608,12 +597,6 @@ __global__ void kernUpdateVelNeighborSearchCoherent(
 				for (int z = gridCellIndex3DMin.z; z <= gridCellIndex3DMax.z; z++)
 #endif
 				{
-					if (x < 0) { x += gridResolution; }
-					if (y < 0) { y += gridResolution; }
-					if (z < 0) { z += gridResolution; }
-					if (x >= gridResolution) { x -= gridResolution; }
-					if (y >= gridResolution) { y -= gridResolution; }
-					if (z >= gridResolution) { z -= gridResolution; }
 					glm::ivec3 neighborGridCellIndex3D = glm::ivec3(x, y, z);
 					neighborGridCellIndex3D = (neighborGridCellIndex3D + gridResolution) % gridResolution;
 					int neighborGridCellIndex = gridIndex3Dto1D(neighborGridCellIndex3D.x, neighborGridCellIndex3D.y, neighborGridCellIndex3D.z, gridResolution);
